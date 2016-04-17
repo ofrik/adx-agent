@@ -45,10 +45,10 @@ import edu.umich.eecs.tac.props.BankStatus;
  * @author Mariano Schain
  *         Test plug-in
  */
-public class OfrisAgent extends Agent {
+public class GSOAgent extends Agent {
 
     private final Logger log = Logger
-            .getLogger(OfrisAgent.class.getName());
+            .getLogger(GSOAgent.class.getName());
 
     /*
      * Basic simulation information. An agent should receive the {@link
@@ -117,7 +117,7 @@ public class OfrisAgent extends Agent {
     private String[] publisherNames;
     private CampaignData currCampaign;
 
-    public OfrisAgent() {
+    public GSOAgent() {
         campaignReports = new LinkedList<CampaignReport>();
     }
 
