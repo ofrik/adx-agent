@@ -222,7 +222,7 @@ public class GSOAgent extends Agent {
         myCampaigns.put(initialCampaignMessage.getId(), campaignData);
     }
 
-    private ArrayList<CampaignData> getActiveCampaigns(){
+    private ArrayList<CampaignData> getActiveCampaignsInDay(int day){
         ArrayList<CampaignData> arr = new ArrayList<CampaignData>();
         for(CampaignData currCampaign: myCampaigns.values()){
             if ((day >= currCampaign.dayStart)
@@ -267,13 +267,15 @@ public class GSOAgent extends Agent {
 		 * Adjust ucs bid s.t. target level is achieved. Note: The bid for the
 		 * user classification service is piggybacked
 		 */
-        System.out.println("TEST::::::::::::____________"+getActiveCampaigns().toString());
         if (adNetworkDailyNotification != null) {
             double ucsLevel = adNetworkDailyNotification.getServiceLevel();
             ucsBid = 0.1 + random.nextDouble() / 10.0;
             System.out.println("Day " + day + ": ucs level reported: " + ucsLevel);
         } else {
             System.out.println("Day " + day + ": Initial ucs bid is " + ucsBid);
+        }
+        if(getActiveCampaignsInDay(day+1).size()==0){
+        	ucsBid = 0;
         }
 
 		/* Note: Campaign bid is in millis */
@@ -315,6 +317,7 @@ public class GSOAgent extends Agent {
                 + ". UCS Level set to " + notificationMessage.getServiceLevel()
                 + " at price " + notificationMessage.getPrice()
                 + " Quality Score is: " + notificationMessage.getQualityScore());
+        
     }
 
     /**
