@@ -7,7 +7,8 @@
 - TBD  
 
 ## optimize campaign opportunity
-- TBD  
+- check current average impressions per day and with opportunity
+- check what the risk of not filling the order
 
 ## optimize impression opportunities
 - TBD   
