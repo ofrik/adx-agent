@@ -114,7 +114,7 @@ public class GSOAgent extends Agent {
 	private int day;
 	private String[] publisherNames;
 	private CampaignData currCampaign;
-	private Map<String, ArrayList<CampaignData> > othersCampaigns;
+	private Map<String, ArrayList<CampaignData>> othersCampaigns;
 
 	public GSOAgent() {
 		campaignReports = new LinkedList<CampaignReport>();
@@ -230,17 +230,82 @@ public class GSOAgent extends Agent {
 		return arr;
 	}
 
-	private int averageNumberOfImpressionsForDay(int day) {
-		// TODO 
-		return 0;
+	/**
+	 * calculate the average impression per day need to be supplied per segment
+	 * 
+	 * @param day
+	 * @return
+	 */
+	private double averageNumberOfImpressionsForDay(int day) {
+		// TODO implement the per segment part
+		int sumAverage = 0;
+		double res = 0;
+		ArrayList<CampaignData> activeCmp = getActiveCampaignsInDay(day);
+		for (CampaignData cmp : activeCmp) {
+			int daysLeft = (int) (cmp.dayEnd - day) + 1;
+			int impressionsLeft = cmp.impsTogo();
+			double averagePerDay = impressionsLeft / daysLeft;
+			// System.out.println("Campaign "+cmp.id+" has "+daysLeft+" days
+			// left and "+impressionsLeft+" impressions left");
+			sumAverage += averagePerDay;
+		}
+		if (activeCmp.size() > 0) {
+			res = sumAverage / activeCmp.size();
+		}
+		System.out.println("Average impression for day " + day + " is " + res);
+		return res;
 	}
-	private int getResembleSegmentsCampaign(String[] segment){
-		// TODO 
-		return 0;
-	}
-	private int getPotentialImpressions(String[] segment){
+
+	/**
+	 * calculate how many common segments this segment has with active campaigns
+	 * 
+	 * @param segment
+	 * @return
+	 */
+	private int getResembleSegmentsCampaign(String[] segment) {
 		// TODO
 		return 0;
+	}
+
+	/**
+	 * calculate the potential impressions for specific segment
+	 * 
+	 * @param segment
+	 * @return
+	 */
+	private int getPotentialImpressions(String[] segment) {
+		// TODO
+		return 0;
+	}
+
+	/**
+	 * calculate how much other agent may want the current campaign
+	 * 
+	 * @return
+	 */
+	private int riskFromOthers() {
+		// TODO
+		return 0;
+	}
+
+	/**
+	 * remove old campaigns for other agents
+	 */
+	private void removeOtherOldCampaigns() {
+		try {
+			for (String agentName : othersCampaigns.keySet()) {
+				ArrayList<CampaignData> cmparr = othersCampaigns.get(agentName);
+				ArrayList<CampaignData> lst = new ArrayList<CampaignData>();
+				for (CampaignData cmp : cmparr) {
+					if (cmp.dayEnd >= day) {
+						lst.add(cmp);
+					}
+				}
+				othersCampaigns.put(agentName, lst);
+			}
+		} catch (Exception e) {
+			System.out.println("~~~ERROR:"+e);
+		}
 	}
 
 	/**
@@ -252,6 +317,8 @@ public class GSOAgent extends Agent {
 	private void handleICampaignOpportunityMessage(CampaignOpportunityMessage com) {
 
 		day = com.getDay();
+		//System.out.println(othersCampaigns.toString());
+		averageNumberOfImpressionsForDay(day + 2);
 
 		pendingCampaign = new CampaignData(com);
 		System.out.println("Day " + day + ": Campaign opportunity - " + pendingCampaign);
@@ -267,7 +334,7 @@ public class GSOAgent extends Agent {
 
 		Random random = new Random();
 		long cmpimps = com.getReachImps();
-		long cmpBidMillis = random.nextInt((int) cmpimps);
+		long cmpBidMillis = (long) (cmpimps*0.1);//random.nextInt((int) cmpimps);
 
 		System.out.println("Day " + day + ": Campaign total budget bid (millis): " + cmpBidMillis);
 
@@ -301,23 +368,12 @@ public class GSOAgent extends Agent {
 
 		adNetworkDailyNotification = notificationMessage;
 
+		removeOtherOldCampaigns();
+
 		System.out.println(
 				"Day " + day + ": Daily notification for campaign " + adNetworkDailyNotification.getCampaignId());
 
 		String campaignAllocatedTo = " allocated to " + notificationMessage.getWinner();
-		
-		if(othersCampaigns.containsKey(campaignAllocatedTo)){
-			ArrayList<CampaignData> lst = othersCampaigns.get(campaignAllocatedTo);
-			lst.add(pendingCampaign);
-			othersCampaigns.put(campaignAllocatedTo, lst);
-		}
-		else{
-			ArrayList<CampaignData> lst = new ArrayList<CampaignData>();
-			lst.add(pendingCampaign);
-			othersCampaigns.put(campaignAllocatedTo, lst);
-		}
-		
-
 		if ((pendingCampaign.id == adNetworkDailyNotification.getCampaignId())
 				&& (notificationMessage.getCostMillis() != 0)) {
 
@@ -328,6 +384,16 @@ public class GSOAgent extends Agent {
 			myCampaigns.put(pendingCampaign.id, pendingCampaign);
 
 			campaignAllocatedTo = " WON at cost (Millis)" + notificationMessage.getCostMillis();
+		} else {
+			if (othersCampaigns.containsKey(notificationMessage.getWinner())) {
+				ArrayList<CampaignData> lst = othersCampaigns.get(notificationMessage.getWinner());
+				lst.add(pendingCampaign);
+				othersCampaigns.put(notificationMessage.getWinner(), lst);
+			} else {
+				ArrayList<CampaignData> lst = new ArrayList<CampaignData>();
+				lst.add(pendingCampaign);
+				othersCampaigns.put(notificationMessage.getWinner(), lst);
+			}
 		}
 
 		System.out.println("Day " + day + ": " + campaignAllocatedTo + ". UCS Level set to "
@@ -454,8 +520,9 @@ public class GSOAgent extends Agent {
 	 * @param AdNetworkReport
 	 */
 	private void handleAdNetworkReport(AdNetworkReport adnetReport) {
-		
-		if(true) return;
+
+		if (true)
+			return;
 
 		System.out.println("Day " + day + " : AdNetworkReport");
 
@@ -478,8 +545,8 @@ public class GSOAgent extends Agent {
 		ucsBid = 0.1 + random.nextDouble() / 10.0;
 
 		myCampaigns = new HashMap<Integer, CampaignData>();
-		othersCampaigns = new HashMap<String,ArrayList<CampaignData> >();
-		
+		othersCampaigns = new HashMap<String, ArrayList<CampaignData>>();
+
 		log.fine("AdNet " + getName() + " simulationSetup");
 	}
 
