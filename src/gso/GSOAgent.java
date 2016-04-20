@@ -114,6 +114,7 @@ public class GSOAgent extends Agent {
 	private int day;
 	private String[] publisherNames;
 	private CampaignData currCampaign;
+	private Map<String, ArrayList<CampaignData> > othersCampaigns;
 
 	public GSOAgent() {
 		campaignReports = new LinkedList<CampaignReport>();
@@ -230,6 +231,15 @@ public class GSOAgent extends Agent {
 	}
 
 	private int averageNumberOfImpressionsForDay(int day) {
+		// TODO 
+		return 0;
+	}
+	private int getResembleSegmentsCampaign(String[] segment){
+		// TODO 
+		return 0;
+	}
+	private int getPotentialImpressions(String[] segment){
+		// TODO
 		return 0;
 	}
 
@@ -295,6 +305,18 @@ public class GSOAgent extends Agent {
 				"Day " + day + ": Daily notification for campaign " + adNetworkDailyNotification.getCampaignId());
 
 		String campaignAllocatedTo = " allocated to " + notificationMessage.getWinner();
+		
+		if(othersCampaigns.containsKey(campaignAllocatedTo)){
+			ArrayList<CampaignData> lst = othersCampaigns.get(campaignAllocatedTo);
+			lst.add(pendingCampaign);
+			othersCampaigns.put(campaignAllocatedTo, lst);
+		}
+		else{
+			ArrayList<CampaignData> lst = new ArrayList<CampaignData>();
+			lst.add(pendingCampaign);
+			othersCampaigns.put(campaignAllocatedTo, lst);
+		}
+		
 
 		if ((pendingCampaign.id == adNetworkDailyNotification.getCampaignId())
 				&& (notificationMessage.getCostMillis() != 0)) {
@@ -456,12 +478,15 @@ public class GSOAgent extends Agent {
 		ucsBid = 0.1 + random.nextDouble() / 10.0;
 
 		myCampaigns = new HashMap<Integer, CampaignData>();
+		othersCampaigns = new HashMap<String,ArrayList<CampaignData> >();
+		
 		log.fine("AdNet " + getName() + " simulationSetup");
 	}
 
 	@Override
 	protected void simulationFinished() {
 		campaignReports.clear();
+		othersCampaigns.clear();
 		bidBundle = null;
 	}
 
