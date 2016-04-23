@@ -397,7 +397,7 @@ public class GSOAgent extends Agent {
 		long cmpimps = com.getReachImps();
 		double USCAverage = USCSum/USCCount;
 		long cmpBidMillis;
-		if(USCAverage>=potentialProfit(factor)&&false){
+		if((USCAverage>=potentialProfit(factor)&&false)||factor<0.1){
 			factor = maxBid;
 			cmpBidMillis = (long) Math.floor(cmpimps*lastQualityScore);
 		}
@@ -534,10 +534,10 @@ public class GSOAgent extends Agent {
 			double percentLeft = averagePerDay/currCampaign.impsTogo();
 			double rbid;
 			if(day>=0 && day<6){
-				rbid = worstBid * (Math.pow(1.05,percentLeft*10)-1);
+				rbid = worstBid * (Math.pow(1.005,percentLeft*100)-1);
 			}
 			else{
-				rbid = worstBid * (Math.pow(1.01,percentLeft*10)-1);
+				rbid = worstBid * (Math.pow(1.001,percentLeft*100)-1);
 			}
 			
 			rbid = Math.min(rbid, worstBid);
