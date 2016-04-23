@@ -12,6 +12,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.text.WordUtils;
+
 import se.sics.isl.transport.Transportable;
 import se.sics.tasim.aw.Agent;
 import se.sics.tasim.aw.Message;
@@ -117,9 +119,41 @@ public class GSOAgent extends Agent {
 	private Map<String, ArrayList<CampaignData>> othersCampaigns;
 	private double lastQualityScore;
 	private int winsInARow;
-
+	private Map<Long,Double> historyFactor;
+	private Map<Set<MarketSegment>,Integer> segmentProb = new HashMap<Set<MarketSegment>,Integer>();
+	private double USCSum;
+	private int USCCount;
 	public GSOAgent() {
 		campaignReports = new LinkedList<CampaignReport>();
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.YOUNG)), 4589);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.OLD)), 5411);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE)), 4956);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE)), 5044);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.HIGH_INCOME)), 1988);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.LOW_INCOME)), 8012);
+		
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.LOW_INCOME)), 3631);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.LOW_INCOME)), 4381);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.HIGH_INCOME)), 1325);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.HIGH_INCOME)), 663);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.YOUNG,MarketSegment.LOW_INCOME)), 3816);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.OLD,MarketSegment.LOW_INCOME)), 4196);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.HIGH_INCOME)), 773);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.OLD,MarketSegment.HIGH_INCOME)), 1215);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.YOUNG)), 2353);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.OLD)), 2603);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.YOUNG)), 2236);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.OLD)), 2808);
+		
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.LOW_INCOME,MarketSegment.YOUNG)), 1836);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.LOW_INCOME,MarketSegment.OLD)), 1795);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.LOW_INCOME,MarketSegment.YOUNG)), 1980);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.LOW_INCOME,MarketSegment.OLD)), 2401);
+		
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.HIGH_INCOME,MarketSegment.YOUNG)), 517);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.MALE,MarketSegment.HIGH_INCOME,MarketSegment.OLD)), 808);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.HIGH_INCOME,MarketSegment.YOUNG)), 256);
+		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.FEMALE,MarketSegment.HIGH_INCOME,MarketSegment.OLD)), 407);
 	}
 
 	@Override
@@ -255,7 +289,6 @@ public class GSOAgent extends Agent {
 				segmentAVG.put(ms, current + averagePerDay);
 			}
 		}
-		System.out.println("---Average impression for day " + day + " is:\n" + segmentAVG.toString() + "\n---");
 		return segmentAVG;
 	}
 
@@ -271,6 +304,19 @@ public class GSOAgent extends Agent {
 			
 		}
 		return 0;
+	}
+	
+	private int getSegmentAverage(Set<MarketSegment> segment){
+		switch(segment.size()){
+		case 1:
+			return (int)(segmentProb.getOrDefault(segment,0)/24);
+		case 2:
+			return (int)(segmentProb.getOrDefault(segment,0)/12);
+		case 3:
+			return (int)(segmentProb.getOrDefault(segment,0)/6);
+		default:
+			return 0;
+		}
 	}
 
 	/**
@@ -292,6 +338,10 @@ public class GSOAgent extends Agent {
 	private int riskFromOthers() {
 		// TODO
 		return 0;
+	}
+	
+	private double potentialProfit(double bid){
+		return bid*0.99;
 	}
 
 	/**
@@ -324,7 +374,7 @@ public class GSOAgent extends Agent {
 
 		day = com.getDay();
 		// System.out.println(othersCampaigns.toString());
-		averageNumberOfImpressionsForDay(day + 2);
+		//averageNumberOfImpressionsForDay(day + 2);
 
 		pendingCampaign = new CampaignData(com);
 		System.out.println("Day " + day + ": Campaign opportunity - " + pendingCampaign);
@@ -337,19 +387,39 @@ public class GSOAgent extends Agent {
 		 * therefore the total number of impressions may be treated as a reserve
 		 * (upper bound) price for the auction.
 		 */
-
+		
 		Random random = new Random();
-		double winCmpFactor = Math.pow(1.5, winsInARow);
-		double factorBase = 0.7;
 		double minBid = com.getReachImps()*0.0001/lastQualityScore;
 		double maxBid = com.getReachImps()*0.001*lastQualityScore;
+		double cmp_L = (1+com.getDayEnd()-com.getDayStart());
 		double range = (maxBid-minBid)*Math.max(Math.pow(1.0005,winsInARow)-1,0);
-		double factor = Math.min(Math.max(factorBase*lastQualityScore*winCmpFactor,0.1),1);
+		double factor = Math.min(Math.max(minBid+((maxBid-minBid)*historyFactor.getOrDefault((long)cmp_L,0.0)*0 + range),minBid),maxBid);
 		long cmpimps = com.getReachImps();
-		long cmpBidMillis = (long) Math.ceil((minBid+range)*1000);//random.nextInt((int)cmpimps);
-		System.out.println("---\nmin bid acceptable: "+minBid+"\tmax bid acceptable: "+maxBid+"\nWins in a row: "+winsInARow+"\nbid above min: "+range+"\nQuality score: "+lastQualityScore+"\n---");
-
+		double USCAverage = USCSum/USCCount;
+		long cmpBidMillis;
+		if(USCAverage>=potentialProfit(factor)&&false){
+			factor = maxBid;
+			cmpBidMillis = (long) Math.floor(cmpimps*lastQualityScore);
+		}
+		else{
+			cmpBidMillis = (long) Math.ceil(factor*1000);
+		}
+		try{
+			double segmentProbability = segmentProb.getOrDefault(com.getTargetSegment(),0)/10000.0;
+			/*int[] L_s = {3,5,10};
+			double[] RL_s = {0.2,0.5,0.8};
+			for(int l: L_s){
+				for(double rl: RL_s){
+					System.out.println("possible average segment: "+(cmp_L/(l*rl)));
+				}
+			}*/
+			System.out.println("---\nSegment Users: "+segmentProbability+"\nmin bid acceptable: "+minBid+"\tmax bid acceptable: "+maxBid+"\nWins in a row: "+winsInARow+"\nbid above min: "+(factor - minBid)+"\nQuality score: "+lastQualityScore+"\nHistory factor: "+historyFactor+"\n---");
+		}
+		catch(Exception e){
+			System.out.println("$$ ERROR: "+e);
+		}
 		System.out.println("Day " + day + ": Campaign total budget bid (millis): " + cmpBidMillis);
+		pendingCampaign.setBid(cmpBidMillis);
 
 		/*
 		 * Adjust ucs bid s.t. target level is achieved. Note: The bid for the
@@ -358,6 +428,8 @@ public class GSOAgent extends Agent {
 		if (adNetworkDailyNotification != null) {
 			double ucsLevel = adNetworkDailyNotification.getServiceLevel();
 			ucsBid = 0.1 + random.nextDouble() / 10.0;
+			USCCount++;
+			USCSum += ucsBid;
 			System.out.println("Day " + day + ": ucs level reported: " + ucsLevel);
 		} else {
 			System.out.println("Day " + day + ": Initial ucs bid is " + ucsBid);
@@ -401,9 +473,12 @@ public class GSOAgent extends Agent {
 			currCampaign = pendingCampaign;
 			genCampaignQueries(currCampaign);
 			myCampaigns.put(pendingCampaign.id, pendingCampaign);
-
+			historyFactor.put(pendingCampaign.dayEnd-pendingCampaign.dayStart+1, (notificationMessage.getCostMillis() - pendingCampaign.bid)/pendingCampaign.reachImps);
 			campaignAllocatedTo = " WON at cost (Millis)" + notificationMessage.getCostMillis();
 		} else {
+			long days = 1 + pendingCampaign.dayEnd - pendingCampaign.dayStart;
+			double curFactor = historyFactor.getOrDefault(days, 0.0);
+			historyFactor.put(days, curFactor*0.05);
 			winsInARow--;
 			if (othersCampaigns.containsKey(notificationMessage.getWinner())) {
 				ArrayList<CampaignData> lst = othersCampaigns.get(notificationMessage.getWinner());
@@ -448,15 +523,31 @@ public class GSOAgent extends Agent {
 		 */
 
 		int dayBiddingFor = day + 1;
-
+		System.out.println("--------AD BIDS-------");
+		System.out.println("Average impression for day " + day + " is:\n"+averageNumberOfImpressionsForDay(day));
 		for (CampaignData currCampaign : getActiveCampaignsInDay(dayBiddingFor)) {
-
-			double worstBid = currCampaign.reachImps / (currCampaign.budget * 1000);
+			double budgetRemains = currCampaign.budget-currCampaign.stats.getCost();
+			System.out.println("Remaining budget: "+budgetRemains);
+			double worstBid = currCampaign.impsTogo() / (budgetRemains* 1000);
+			long daysRemains = 1 + currCampaign.dayEnd - day;
+			double averagePerDay = currCampaign.impsTogo()/daysRemains;
+			double percentLeft = averagePerDay/currCampaign.impsTogo();
+			double rbid;
+			if(day>=0 && day<6){
+				rbid = worstBid * (Math.pow(1.05,percentLeft*10)-1);
+			}
+			else{
+				rbid = worstBid * (Math.pow(1.01,percentLeft*10)-1);
+			}
+			
+			rbid = Math.min(rbid, worstBid);
+			
+			System.out.println("Worst bid for impression: "+worstBid+"\nAverage impressions per day remains: "+averagePerDay+"\nPercent left: "+percentLeft+"\nBidding: "+rbid+"\n\n");
 			// System.out.println("The Budget is: "+currCampaign.budget+" and
 			// the required reach is: "+currCampaign.reachImps);
 			// System.out.println("The worst bid for each 1000 impressions is:
 			// "+worstBid);
-			double rbid = worstBid * 0.05;
+			
 			// System.out.println("The rbid is: "+rbid);
 
 			int entCount = 0;
@@ -492,12 +583,12 @@ public class GSOAgent extends Agent {
 
 			double impressionLimit = currCampaign.impsTogo();
 			double budgetLimit = currCampaign.budget;
-			bidBundle.setCampaignDailyLimit(currCampaign.id, (int) impressionLimit, budgetLimit);
+			bidBundle.setCampaignDailyLimit(currCampaign.id, (int) impressionLimit, budgetRemains);
 
-			System.out.println(
-					"Day " + day + ": Updated " + entCount + " Bid Bundle entries for Campaign id " + currCampaign.id);
+			//System.out.println("Day " + day + ": Updated " + entCount + " Bid Bundle entries for Campaign id " + currCampaign.id);
 
 		}
+		System.out.println("----------------------");
 
 		if (bidBundle != null) {
 			System.out.println("Day " + day + ": Sending BidBundle");
@@ -531,6 +622,9 @@ public class GSOAgent extends Agent {
 	 * Users and Publishers statistics: popularity and ad type orientation
 	 */
 	private void handleAdxPublisherReport(AdxPublisherReport adxPublisherReport) {
+		if(true){
+			return;
+		}
 		System.out.println("Publishers Report: ");
 		for (PublisherCatalogEntry publisherKey : adxPublisherReport.keys()) {
 			AdxPublisherReportEntry entry = adxPublisherReport.getEntry(publisherKey);
@@ -569,7 +663,10 @@ public class GSOAgent extends Agent {
 		myCampaigns = new HashMap<Integer, CampaignData>();
 		othersCampaigns = new HashMap<String, ArrayList<CampaignData>>();
 		winsInARow = 0;
-		lastQualityScore = 0;
+		lastQualityScore = 1;
+		historyFactor = new HashMap<Long,Double>();
+		USCSum = ucsBid;
+		USCCount = 1;
 
 		log.fine("AdNet " + getName() + " simulationSetup");
 	}
@@ -661,8 +758,7 @@ public class GSOAgent extends Agent {
 
 		campaignData.campaignQueries = new AdxQuery[campaignQueriesSet.size()];
 		campaignQueriesSet.toArray(campaignData.campaignQueries);
-		System.out
-				.println("!!!!!!!!!!!!!!!!!!!!!!" + Arrays.toString(campaignData.campaignQueries) + "!!!!!!!!!!!!!!!!");
+		//System.out.println("!!!!!!!!!!!!!!!!!!!!!!" + Arrays.toString(campaignData.campaignQueries) + "!!!!!!!!!!!!!!!!");
 
 	}
 
@@ -681,6 +777,7 @@ public class GSOAgent extends Agent {
 		/* campaign info as reported */
 		CampaignStats stats;
 		double budget;
+		double bid;
 
 		public CampaignData(InitialCampaignMessage icm) {
 			reachImps = icm.getReachImps();
@@ -693,10 +790,15 @@ public class GSOAgent extends Agent {
 
 			stats = new CampaignStats(0, 0, 0);
 			budget = 0.0;
+			bid = 0.0;
 		}
 
 		public void setBudget(double d) {
 			budget = d;
+		}
+		
+		public void setBid(double d){
+			bid = d;
 		}
 
 		public CampaignData(CampaignOpportunityMessage com) {
@@ -709,6 +811,7 @@ public class GSOAgent extends Agent {
 			videoCoef = com.getVideoCoef();
 			stats = new CampaignStats(0, 0, 0);
 			budget = 0.0;
+			bid = 0.0;
 		}
 
 		@Override
@@ -716,7 +819,7 @@ public class GSOAgent extends Agent {
 			return "Campaign ID " + id + ": " + "day " + dayStart + " to " + dayEnd + " " + targetSegment + ", reach: "
 					+ reachImps + " coefs: (v=" + videoCoef + ", m=" + mobileCoef + ")";
 		}
-
+		
 		int impsTogo() {
 			return (int) Math.max(0, reachImps - stats.getTargetedImps());
 		}
