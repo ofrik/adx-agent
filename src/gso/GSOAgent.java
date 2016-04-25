@@ -123,6 +123,10 @@ public class GSOAgent extends Agent {
 	private Map<Set<MarketSegment>,Integer> segmentProb = new HashMap<Set<MarketSegment>,Integer>();
 	private double USCSum;
 	private int USCCount;
+	private int campaignCounter;
+	private static double SERVICE_LEVEL_TARGET = 0.8;
+	private double classificationServiceBid = 0.5;
+	
 	public GSOAgent() {
 		campaignReports = new LinkedList<CampaignReport>();
 		segmentProb.put(new HashSet<MarketSegment>(Arrays.asList(MarketSegment.YOUNG)), 4589);
@@ -393,11 +397,14 @@ public class GSOAgent extends Agent {
 		double maxBid = com.getReachImps()*0.001*lastQualityScore;
 		double cmp_L = (1+com.getDayEnd()-com.getDayStart());
 		double range = (maxBid-minBid)*Math.max(Math.pow(1.0005,winsInARow)-1,0);
+		if(lastQualityScore<1.2){
+			range = 0;
+		}
 		double factor = Math.min(Math.max(minBid+((maxBid-minBid)*historyFactor.getOrDefault((long)cmp_L,0.0)*0 + range),minBid),maxBid);
 		long cmpimps = com.getReachImps();
 		double USCAverage = USCSum/USCCount;
 		long cmpBidMillis;
-		if((USCAverage>=potentialProfit(factor)&&false)||factor<0.1){
+		if((USCAverage>=potentialProfit(factor)&&false)||(factor<0.1&&cmp_L!=3)){
 			factor = maxBid;
 			cmpBidMillis = (long) Math.floor(cmpimps*lastQualityScore);
 		}
@@ -427,7 +434,8 @@ public class GSOAgent extends Agent {
 		 */
 		if (adNetworkDailyNotification != null) {
 			double ucsLevel = adNetworkDailyNotification.getServiceLevel();
-			ucsBid = 0.1 + random.nextDouble() / 10.0;
+			//ucsBid = 0.1 + random.nextDouble() / 10.0;
+			ucsBid = classificationServiceBid;
 			USCCount++;
 			USCSum += ucsBid;
 			System.out.println("Day " + day + ": ucs level reported: " + ucsLevel);
@@ -461,7 +469,7 @@ public class GSOAgent extends Agent {
 		String campaignAllocatedTo = " allocated to " + notificationMessage.getWinner();
 		if ((pendingCampaign.id == adNetworkDailyNotification.getCampaignId())
 				&& (notificationMessage.getCostMillis() != 0)) {
-			
+			campaignCounter++;
 			if(winsInARow>=0){
 				winsInARow++;
 			}
@@ -497,6 +505,13 @@ public class GSOAgent extends Agent {
 		
 		lastQualityScore = notificationMessage.getQualityScore();
 
+	
+		if (notificationMessage.getServiceLevel() < SERVICE_LEVEL_TARGET){
+			this.classificationServiceBid *= 1.2;
+		}
+		else {
+			this.classificationServiceBid *= 0.9;
+		}
 	}
 
 	/**
@@ -533,11 +548,13 @@ public class GSOAgent extends Agent {
 			double averagePerDay = currCampaign.impsTogo()/daysRemains;
 			double percentLeft = averagePerDay/currCampaign.impsTogo();
 			double rbid;
-			if(day>=0 && day<6){
-				rbid = worstBid * (Math.pow(1.005,percentLeft*100)-1);
+			if((day>=0 && day<6)){
+				System.out.println("!!!!SALE!!!!");
+				rbid = worstBid*1.2;
+				budgetRemains = currCampaign.budget;
 			}
 			else{
-				rbid = worstBid * (Math.pow(1.001,percentLeft*100)-1);
+				rbid = worstBid * (Math.pow(1.002,percentLeft*100)-1);
 			}
 			
 			rbid = Math.min(rbid, worstBid);
@@ -667,6 +684,7 @@ public class GSOAgent extends Agent {
 		historyFactor = new HashMap<Long,Double>();
 		USCSum = ucsBid;
 		USCCount = 1;
+		campaignCounter = 0;
 
 		log.fine("AdNet " + getName() + " simulationSetup");
 	}
