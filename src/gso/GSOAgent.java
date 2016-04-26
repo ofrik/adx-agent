@@ -196,7 +196,7 @@ public class GSOAgent extends Agent {
 			}
 
 		} catch (NullPointerException e) {
-			this.log.log(Level.SEVERE, "Exception thrown while trying to parse message." + e);
+			//this.log.log(Level.SEVERE, "Exception thrown while trying to parse message." + e);
 			return;
 		}
 	}
@@ -478,12 +478,14 @@ public class GSOAgent extends Agent {
 			}
 			/* add campaign to list of won campaigns */
 			pendingCampaign.setBudget(notificationMessage.getCostMillis() / 1000.0);
+			log.info(day+",CAMPAIGN,"+pendingCampaign.targetSegment+","+pendingCampaign.reachImps+","+pendingCampaign.dayStart+","+pendingCampaign.dayEnd+","+pendingCampaign.bid+","+(notificationMessage.getCostMillis() / 1000.0));
 			currCampaign = pendingCampaign;
 			genCampaignQueries(currCampaign);
 			myCampaigns.put(pendingCampaign.id, pendingCampaign);
 			historyFactor.put(pendingCampaign.dayEnd-pendingCampaign.dayStart+1, (notificationMessage.getCostMillis() - pendingCampaign.bid)/pendingCampaign.reachImps);
 			campaignAllocatedTo = " WON at cost (Millis)" + notificationMessage.getCostMillis();
 		} else {
+			log.info(day+",CAMPAIGN,"+pendingCampaign.targetSegment+","+pendingCampaign.reachImps+","+pendingCampaign.dayStart+","+pendingCampaign.dayEnd+","+pendingCampaign.bid+",Nan");
 			long days = 1 + pendingCampaign.dayEnd - pendingCampaign.dayStart;
 			double curFactor = historyFactor.getOrDefault(days, 0.0);
 			historyFactor.put(days, curFactor*0.05);
@@ -502,6 +504,8 @@ public class GSOAgent extends Agent {
 		System.out.println("Day " + day + ": " + campaignAllocatedTo + ". UCS Level set to "
 				+ notificationMessage.getServiceLevel() + " at price " + notificationMessage.getPrice()
 				+ " Quality Score is: " + notificationMessage.getQualityScore());
+		
+		log.info(day+",UCS,"+notificationMessage.getPrice()+","+notificationMessage.getServiceLevel());
 		
 		lastQualityScore = notificationMessage.getQualityScore();
 
@@ -686,7 +690,7 @@ public class GSOAgent extends Agent {
 		USCCount = 1;
 		campaignCounter = 0;
 
-		log.fine("AdNet " + getName() + " simulationSetup");
+		//log.fine("AdNet " + getName() + " simulationSetup");
 	}
 
 	@Override
